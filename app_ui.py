@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import datetime
 from database_setup import create_tables, insert_train, insert_record, fetch_all
-from csv_to_db import insert_from_csv
+from csv_to_db import insert_from_df
+from simulation import run_simulation
 
 # Custom CSS for enhanced UI
 st.markdown("""
@@ -89,45 +90,57 @@ tabs = st.tabs([
     "📏 Mileage",
     "🧹 Cleaning Slots",
     "🏠 Depot Positions",
-    "📊 Dashboard"
+    "📊 Dashboard",
+    "🔮 Simulation"
 ])
 
 # ------------------ CSV UPLOAD ------------------
 with tabs[0]:
     st.markdown('<h2 class="section-header">📂 Upload CSV Data</h2>', unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"])
+    if uploaded_file:
+        try:
+            df = pd.read_csv(uploaded_file)
+            st.session_state['uploaded_df'] = df
+            valid = not (df.empty or len(df.columns) == 0)
+            if not valid:
+                st.error("Uploaded file has no data or columns.")
+                st.session_state['uploaded_df'] = None
+        except pd.errors.EmptyDataError:
+            st.error("Uploaded file is empty or invalid.")
+            st.session_state['uploaded_df'] = None
+        except pd.errors.ParserError:
+            st.error("Uploaded file is not a valid CSV.")
+            st.session_state['uploaded_df'] = None
+        except Exception as e:
+            st.error(f"Error reading CSV: {e}")
+            st.session_state['uploaded_df'] = None
+    else:
+        st.session_state['uploaded_df'] = None
+
     col1, col2 = st.columns([1, 2])
 
     with col1:
         with st.expander("Upload Form", expanded=True):
-            uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"])
             table_choice = st.selectbox("Target Table", [
                 "trains", "fitness_certificates", "job_cards",
                 "branding_priorities", "mileage_records",
                 "cleaning_slots", "depot_positions"
             ])
 
-            if uploaded_file and st.button("Insert into DB"):
-                if table_choice:
-                    insert_from_csv(uploaded_file, table_choice)
+            if st.button("Insert into DB"):
+                if table_choice and st.session_state.get('uploaded_df') is not None:
+                    insert_from_df(st.session_state['uploaded_df'], table_choice)
                     st.success(f"✅ Inserted into {table_choice}!")
                 else:
-                    st.error("Please select a target table.")
+                    st.error("Please select a target table and upload a valid file.")
 
     with col2:
-        if uploaded_file:
-            try:
-                df = pd.read_csv(uploaded_file)
-                if df.empty or len(df.columns) == 0:
-                    st.error("Uploaded file has no data or columns.")
-                else:
-                    st.subheader("Preview")
-                    st.dataframe(df.head(10))
-            except pd.errors.EmptyDataError:
-                st.error("Uploaded file is empty or invalid.")
-            except pd.errors.ParserError:
-                st.error("Uploaded file is not a valid CSV.")
-            except Exception as e:
-                st.error(f"Error reading CSV: {e}")
+        if st.session_state.get('uploaded_df') is not None:
+            st.subheader("Preview")
+            st.dataframe(st.session_state['uploaded_df'].head(10))
+        else:
+            st.info("Upload a CSV file to see preview.")
 
 
 # ------------------ TRAINS ------------------
@@ -472,3 +485,65 @@ with tabs[8]:
         st.metric("Trains Passed Checks", passed)
     with col2:
         st.metric("Trains Needing Maintenance", needs)
+
+
+# ------------------ SIMULATION ------------------
+with tabs[9]:
+    st.markdown('<h2 class="section-header">🔮 What-If Simulation</h2>', unsafe_allow_html=True)
+    st.write("Test scenarios for nightly induction plans. Adjust variables to see trade-offs in punctuality, cost, safety, and advertiser obligations.")
+
+    # Scenario Inputs
+    st.subheader("Scenario Variables")
+    col1, col2 = st.columns(2)
+    with col1:
+        min_induction_count = st.slider("Minimum Trains to Induct", min_value=1, max_value=50, value=10)
+        allow_risky_trains = st.checkbox("Allow Risky Trains (with issues)")
+        max_issues_allowed = st.slider("Max Issues Allowed per Train", min_value=0, max_value=5, value=1) if allow_risky_trains else 0
+        prioritize_advertiser = st.checkbox("Prioritize Advertiser Campaigns")
+    with col2:
+        cost_penalty_per_issue = st.slider("Cost Penalty per Issue (₹)", min_value=0, max_value=2000, value=500)
+        # Additional variables can be added here
+
+    # Run Simulation
+    if st.button("Run Simulation"):
+        params = {
+            'min_induction_count': min_induction_count,
+            'allow_risky_trains': allow_risky_trains,
+            'max_issues_allowed': max_issues_allowed,
+            'prioritize_advertiser': prioritize_advertiser,
+            'cost_penalty_per_issue': cost_penalty_per_issue
+        }
+        result = run_simulation(params)
+
+        # Display Results
+        st.subheader("Simulation Results")
+        metrics = result['metrics']
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Punctuality (%)", metrics['punctuality'])
+        with col2:
+            st.metric("Total Cost (₹)", f"{metrics['cost']:,}")
+        with col3:
+            st.metric("Safety Score (Avg Issues)", metrics['safety_score'])
+        with col4:
+            st.metric("Advertiser Exposure (Hrs)", metrics['advertiser_exposure'])
+
+        # Selected Trains
+        st.subheader("Selected Trains for Induction")
+        selected_df = pd.DataFrame(result['selected_trains'])
+        if not selected_df.empty:
+            selected_df = selected_df[['train_number', 'status', 'issues', 'issue_count']]
+            selected_df.rename(columns={'train_number': 'Train Number', 'status': 'Status', 'issues': 'Issues', 'issue_count': 'Issue Count'}, inplace=True)
+            st.dataframe(selected_df)
+        else:
+            st.info("No trains selected based on criteria.")
+
+        # Metrics Chart
+        st.subheader("Metrics Comparison")
+        chart_data = pd.DataFrame({
+            'Metric': ['Punctuality', 'Cost', 'Safety Score', 'Advertiser Exposure'],
+            'Value': [metrics['punctuality'], metrics['cost'], metrics['safety_score'], metrics['advertiser_exposure']]
+        })
+        st.bar_chart(chart_data.set_index('Metric'))
+    else:
+        st.info("Adjust parameters and click 'Run Simulation' to see results.")

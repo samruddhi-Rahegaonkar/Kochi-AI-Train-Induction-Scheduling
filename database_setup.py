@@ -113,7 +113,7 @@ def insert_record(table, data: dict):
     cur = conn.cursor()
     cols = ", ".join(data.keys())
     placeholders = ", ".join(["?"] * len(data))
-    sql = f"INSERT INTO {table} ({cols}) VALUES ({placeholders})"
+    sql = f"INSERT OR IGNORE INTO {table} ({cols}) VALUES ({placeholders})"
     cur.execute(sql, tuple(data.values()))
     conn.commit()
     conn.close()

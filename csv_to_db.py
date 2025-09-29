@@ -2,12 +2,8 @@ import pandas as pd
 import datetime
 from database_setup import create_connection, create_tables, insert_record
 
-def insert_from_csv(csv_file, table_name):
-    """Insert multiple rows from CSV into a specific table."""
-    if hasattr(csv_file, "seek"):  # Streamlit uploaded file
-        csv_file.seek(0)
-
-    df = pd.read_csv(csv_file)
+def insert_from_df(df, table_name):
+    """Insert multiple rows from DataFrame into a specific table."""
 
     # Define converters for each table
     converters = {
@@ -101,4 +97,4 @@ def insert_from_csv(csv_file, table_name):
 
 if __name__ == "__main__":
     create_tables()
-    insert_from_csv("trains.csv", "trains")
+    insert_from_df("trains.csv", "trains")
