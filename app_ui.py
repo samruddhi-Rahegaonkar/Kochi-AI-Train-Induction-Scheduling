@@ -5,71 +5,65 @@ from database_setup import create_tables, insert_train, insert_record, fetch_all
 from csv_to_db import insert_from_df
 from simulation import run_simulation
 
-# Custom CSS for enhanced UI
+# Custom CSS for white UI
 st.markdown("""
 <style>
+    body {
+        background-color: white;
+        color: black;
+    }
     .main-header {
         font-size: 2.5em;
-        color: #2E86AB;
+        color: black;
         text-align: center;
         margin-bottom: 20px;
         font-family: 'Helvetica, Arial, sans-serif';
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
     .section-header {
-        color: #A23B72;
-        border-bottom: 2px solid #A23B72;
+        color: black;
+        border-bottom: 2px solid black;
         padding-bottom: 5px;
         font-family: 'Helvetica, Arial, sans-serif';
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-        transition: color 0.3s;
-    }
-    .section-header:hover {
-        color: #8B1F5A;
     }
     .stButton>button {
-        background-color: #F18F01;
-        color: white;
+        background-color: white;
+        color: black;
         border-radius: 5px;
-        border: none;
+        border: 1px solid black;
         padding: 10px 20px;
     }
     .stButton>button:hover {
-        background-color: #C73E1D;
+        background-color: #f0f0f0;
     }
     .dataframe {
         border: 1px solid #ddd;
         border-radius: 5px;
     }
     .stTabs {
-        background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e0 100%);
+        background: white;
         border-radius: 8px;
         padding: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        border: 1px solid #e2e8f0;
+        border: 1px solid #ddd;
     }
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #ffffff;
-        color: #4a5568;
+        background-color: white;
+        color: black;
         border-radius: 6px;
-        border: 1px solid #cbd5e0;
+        border: 1px solid #ddd;
         transition: all 0.3s ease;
         font-weight: 500;
         padding: 8px 12px;
         font-size: 14px;
     }
     .stTabs [data-baseweb="tab"]:hover {
-        background-color: #f7fafc;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        background-color: #f0f0f0;
     }
     .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background-color: #3182ce;
-        color: #ffffff;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        background-color: #e0e0e0;
+        color: black;
     }
 </style>
 """, unsafe_allow_html=True)
