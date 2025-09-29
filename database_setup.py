@@ -1,68 +1,133 @@
 import sqlite3
 
-DB_NAME= "trains.db"
+DB_NAME = "trains.db"
+
 
 def create_connection(db_name=DB_NAME):
     """Create SQLite connection (creates file if not exists)."""
     connection = sqlite3.connect(db_name)
     return connection
 
-def create_table():
-    """Create the trains table with all required fields."""
-    connection=create_connection()
-    cursor=connection.cursor()
 
+def create_tables():
+    """Create all required tables for the project."""
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    # Master train list
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS trains (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fitness_certificate TEXT,
-        job_card TEXT,
-        branding_priority TEXT,
-        mileage_balancing REAL,
-        cleaning_slot TEXT,
-        depot_positioning TEXT
+        train_number TEXT UNIQUE NOT NULL,
+        description TEXT
     )
     """)
 
-    connection.commit()
-    connection.close()
-    print("Table 'trains' created successfully!")
-
-
-def insert_train(fitness_certificate, job_card, branding_priority, mileage_balancing, cleaning_slot, depot_positioning ):
-    connection=create_connection()
-    cursor=connection.cursor()
-
+    # Fitness certificates
     cursor.execute("""
-    INSERT INTO trains 
-    (fitness_certificate, job_card, branding_priority, mileage_balancing, cleaning_slot, depot_positioning)
-    VALUES (?, ?, ?, ?, ?, ?)
-    """, (fitness_certificate, job_card, branding_priority,
-          mileage_balancing, cleaning_slot, depot_positioning))
-    
-    connection.commit()
-    connection.close()
-    print("Record Inserted")
-    
-def fetch_all():
-    connection=create_connection()
-    cursor=connection.cursor()
+    CREATE TABLE IF NOT EXISTS fitness_certificates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        train_id INTEGER,
+        certificate_status TEXT,
+        valid_till DATE,
+        issued_by TEXT,
+        FOREIGN KEY (train_id) REFERENCES trains(id)
+    )
+    """)
 
-    cursor.execute("SELECT * FROM trains")
-    rows=cursor.fetchall()
+    # Job cards
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS job_cards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        train_id INTEGER,
+        job_card_no TEXT,
+        status TEXT,
+        source_system TEXT,
+        FOREIGN KEY (train_id) REFERENCES trains(id)
+    )
+    """)
 
-    connection.close()
-    return rows
+    # Branding
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS branding_priorities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        train_id INTEGER,
+        priority_level TEXT,
+        campaign_name TEXT,
+        exposure_hours REAL,
+        FOREIGN KEY (train_id) REFERENCES trains(id)
+    )
+    """)
+
+    # Mileage
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS mileage_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        train_id INTEGER,
+        total_km REAL,
+        last_updated DATE,
+        FOREIGN KEY (train_id) REFERENCES trains(id)
+    )
+    """)
+
+    # Cleaning
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS cleaning_slots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        train_id INTEGER,
+        slot_name TEXT,
+        scheduled_time TEXT,
+        status TEXT,
+        FOREIGN KEY (train_id) REFERENCES trains(id)
+    )
+    """)
+
+    # Depot positions
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS depot_positions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        train_id INTEGER,
+        depot_name TEXT,
+        position_code TEXT,
+        FOREIGN KEY (train_id) REFERENCES trains(id)
+    )
+    """)
+
+    conn.commit()
+    conn.close()
 
 
-if __name__ == "__main__":
-    create_table()
+# Insert helpers
+def insert_train(train_number, description=""):
+    conn = create_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT OR IGNORE INTO trains (train_number, description) VALUES (?, ?)",
+                (train_number, description))
+    conn.commit()
+    conn.close()
 
-    insert_train("Valid till 2026", "JC-12345", "High", 12000.5, "Slot-A", "Depot-1")
-    insert_train("Expired", "JC-54321", "Medium", 8000.0, "Slot-B", "Depot-2")
 
-    data = fetch_all()
-    print("📄 All Records:")
-    for row in data:
-        print(row)
+def insert_record(table, data: dict):
+    """Generic insert into any table by dict."""
+    conn = create_connection()
+    cur = conn.cursor()
+    cols = ", ".join(data.keys())
+    placeholders = ", ".join(["?"] * len(data))
+    sql = f"INSERT INTO {table} ({cols}) VALUES ({placeholders})"
+    cur.execute(sql, tuple(data.values()))
+    conn.commit()
+    conn.close()
 
+
+def fetch_all(table):
+    conn = create_connection()
+    cur = conn.cursor()
+    # Get column names
+    cur.execute(f"PRAGMA table_info({table})")
+    columns = [row[1] for row in cur.fetchall()]
+    # Get data
+    cur.execute(f"SELECT * FROM {table}")
+    rows = cur.fetchall()
+    conn.close()
+    # Return as list of dicts
+    return [dict(zip(columns, row)) for row in rows]
